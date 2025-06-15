@@ -1,6 +1,7 @@
 from flask import request, Flask, render_template
-import jsonify
+from flask import jsonify
 import joblib
+import pandas as pd
 
 app = Flask(__name__)
 app.app_context().push()
@@ -27,20 +28,35 @@ def post_data():
     # and print it for debugging
     data = request.get_json()
     print(data)
-    
+
     # Load the model
     model = joblib.load('model.pkl')
     
-    # Prepare the input data
-    input_data = [[data['MedInc'], data['HouseAge'], data['AveRooms'], 
-                   data['AveBedrms'], data['Population'], data['AveOccup'], 
-                   data['Latitude'], data['Longitude']]]
-    
-    # Make prediction
-    prediction = model.predict(input_data)
-    
-    # Return the prediction as JSON
-    return jsonify({"prediction": prediction[0]*100000}), 200  # Scale the prediction to match the original target variable's scale
+    keys_map = {
+        'MedInc': data.get('MedInc', data.get('medinc')),
+        'HouseAge': data.get('HouseAge', data.get('houseage')),
+        'AveRooms': data.get('AveRooms', data.get('averooms')),
+        'AveBedrms': data.get('AveBedrms', data.get('avebedrms')),
+        'Population': data.get('Population', data.get('population')),
+        'AveOccup': data.get('AveOccup', data.get('aveoccup')),
+        'Latitude': data.get('Latitude', data.get('latitude')),
+        'Longitude': data.get('Longitude', data.get('longitude')),
+    }
+    # Create DataFrame with correct column names
+    input_df = pd.DataFrame([{
+        'MedInc': float(keys_map['MedInc']),
+        'HouseAge': float(keys_map['HouseAge']),
+        'AveRooms': float(keys_map['AveRooms']),
+        'AveBedrms': float(keys_map['AveBedrms']),
+        'Population': float(keys_map['Population']),
+        'AveOccup': float(keys_map['AveOccup']),
+        'Latitude': float(keys_map['Latitude']),
+        'Longitude': float(keys_map['Longitude'])
+    }])
+    prediction = model.predict(input_df)[0]
+    print(f"Prediction: {prediction}")
+    return jsonify({'prediction': round(float(prediction)*100000,2)})
+
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)  # Run the Flask app on all interfaces at port 5000
